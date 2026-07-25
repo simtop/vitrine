@@ -1,0 +1,323 @@
+/*
+ * Copyright 2026 simtop
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.simtop.vitrine.processor
+
+import com.google.devtools.ksp.KspExperimental
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSFile
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.LIST
+import com.squareup.kotlinpoet.MemberName
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.buildCodeBlock
+import com.squareup.kotlinpoet.ksp.writeTo
+
+public class VitrineProcessorProvider : SymbolProcessorProvider {
+    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
+        VitrineProcessor(
+            codeGenerator = environment.codeGenerator,
+            logger = environment.logger,
+            rawOptions = environment.options,
+        )
+}
+
+internal class VitrineProcessor(
+    private val codeGenerator: CodeGenerator,
+    private val logger: KSPLogger,
+    private val rawOptions: Map<String, String>,
+) : SymbolProcessor {
+
+    /**
+     * KSP calls [process] once per round. The provider and its service file must be written exactly
+     * once, so we latch after the first round that produced anything: writing them again would
+     * throw `FileAlreadyExistsException`, and swallowing that exception is precisely the bug that
+     * makes service-file aggregation unreliable.
+     */
+    private var hasGenerated = false
+
+    // getModuleName() is KspExperimental; it only supplies the default provider class name, and a
+    // consumer who sets vitrine.providerName never depends on it.
+    @OptIn(KspExperimental::class)
+    override fun process(resolver: Resolver): List<KSAnnotated> {
+        if (hasGenerated) return emptyList()
+
+        val annotationName = VITRINE_COMPONENT
+        val symbols = resolver.getSymbolsWithAnnotation(annotationName)
+            .filterIsInstance<KSFunctionDeclaration>()
+            .toList()
+
+        if (symbols.isEmpty()) return emptyList()
+
+        val options = try {
+            VitrineOptions.from(rawOptions, resolver.getModuleName().asString())
+        } catch (e: IllegalArgumentException) {
+            logger.error("Vitrine: ${e.message}")
+            return emptyList()
+        }
+
+        val items = symbols.mapNotNull { func -> describe(func, annotationName) }
+        if (items.isEmpty()) return emptyList()
+
+        items.forEach { generateWrapper(it) }
+        generateProvider(items, options)
+
+        hasGenerated = true
+        return emptyList()
+    }
+
+    private fun describe(func: KSFunctionDeclaration, annotationName: String): ComponentInfo? {
+        val annotation = func.annotations.find {
+            it.annotationType.resolve().declaration.qualifiedName?.asString() == annotationName
+        } ?: return null
+
+        fun argument(name: String): String? =
+            annotation.arguments.find { it.name?.asString() == name }?.value as? String
+
+        val containingFile = func.containingFile
+        if (containingFile == null) {
+            logger.error("Vitrine: @VitrineComponent function has no source file", func)
+            return null
+        }
+
+        val tab = argument("tab").orEmpty()
+        if (tab.isBlank()) {
+            logger.error("Vitrine: 'tab' must not be blank", func)
+            return null
+        }
+
+        val functionName = func.simpleName.asString()
+        val explicitName = argument("name").orEmpty()
+
+        return ComponentInfo(
+            tab = tab,
+            displayName = explicitName.ifEmpty { functionName },
+            packageName = func.packageName.asString(),
+            functionName = functionName,
+            demoContainer = argument("demoContainer").orEmpty(),
+            wrapperName = "${functionName}_VitrineWrapper",
+            parameters = func.parameters.mapNotNull { param ->
+                val paramName = param.name?.asString() ?: return@mapNotNull null
+                val control = ParameterControl.forType(
+                    param.type.resolve().declaration.qualifiedName?.asString()
+                ) ?: return@mapNotNull null
+                ParameterInfo(paramName, control)
+            },
+            sourceFile = containingFile,
+        )
+    }
+
+    private fun generateWrapper(info: ComponentInfo) {
+        val wrapper = FunSpec.builder(info.wrapperName)
+            .addAnnotation(ClassName(COMPOSE_RUNTIME, "Composable"))
+            .addCode(
+                buildCodeBlock {
+                    info.parameters.forEach { param ->
+                        addStatement(
+                            "var %N by %M { %M(${param.control.initialValue}) }",
+                            param.name,
+                            MemberName(COMPOSE_RUNTIME, "remember"),
+                            MemberName(COMPOSE_RUNTIME, "mutableStateOf"),
+                        )
+                    }
+                    add("\n")
+                    beginControlFlow(
+                        "%M(modifier = %M.%M(16.%M))",
+                        MemberName(LAYOUT, "Column"),
+                        MemberName(UI, "Modifier"),
+                        MemberName(LAYOUT, "padding"),
+                        MemberName(UNIT, "dp"),
+                    )
+                    info.parameters.forEach { param -> addControl(param) }
+                    addStatement("%M()", MemberName(MATERIAL3, "HorizontalDivider"))
+                    addSpacer(16)
+                    addComponentCall(info)
+                    endControlFlow()
+                }
+            )
+            .build()
+
+        FileSpec.builder(info.packageName, info.wrapperName)
+            .addImport(COMPOSE_RUNTIME, "getValue", "setValue")
+            .addFunction(wrapper)
+            .build()
+            .writeTo(codeGenerator, Dependencies(aggregating = false, info.sourceFile))
+    }
+
+    private fun com.squareup.kotlinpoet.CodeBlock.Builder.addControl(param: ParameterInfo) {
+        when (param.control) {
+            ParameterControl.TEXT_FIELD -> addStatement(
+                "%M(value = %N, onValueChange = { %N = it }, label = { %M(%S) })",
+                MemberName(MATERIAL3, "TextField"), param.name, param.name,
+                MemberName(MATERIAL3, "Text"), param.name,
+            )
+
+            ParameterControl.CHECKBOX -> {
+                beginControlFlow(
+                    "%M(verticalAlignment = %M.CenterVertically)",
+                    MemberName(LAYOUT, "Row"),
+                    MemberName(UI, "Alignment"),
+                )
+                addStatement("%M(%S)", MemberName(MATERIAL3, "Text"), param.name)
+                addStatement(
+                    "%M(checked = %N, onCheckedChange = { %N = it })",
+                    MemberName(MATERIAL3, "Checkbox"), param.name, param.name,
+                )
+                endControlFlow()
+            }
+
+            ParameterControl.NUMBER_FIELD -> addStatement(
+                "%M(value = %N.toString(), onValueChange = { %N = it.toIntOrNull() ?: 0 }, " +
+                    "label = { %M(%S) }, keyboardOptions = %M(keyboardType = %M.Number))",
+                MemberName(MATERIAL3, "TextField"), param.name, param.name,
+                MemberName(MATERIAL3, "Text"), param.name,
+                MemberName(FOUNDATION_TEXT, "KeyboardOptions"),
+                MemberName(TEXT_INPUT, "KeyboardType"),
+            )
+
+            ParameterControl.SLIDER -> {
+                addStatement(
+                    "%M(%P)",
+                    MemberName(MATERIAL3, "Text"),
+                    "${param.name}: \${${param.name}}",
+                )
+                addStatement(
+                    "%M(value = %N, onValueChange = { %N = it })",
+                    MemberName(MATERIAL3, "Slider"), param.name, param.name,
+                )
+            }
+        }
+        addSpacer(8)
+    }
+
+    private fun com.squareup.kotlinpoet.CodeBlock.Builder.addSpacer(height: Int) {
+        addStatement(
+            "%M(modifier = %M.%M($height.%M))",
+            MemberName(LAYOUT, "Spacer"),
+            MemberName(UI, "Modifier"),
+            MemberName(LAYOUT, "height"),
+            MemberName(UNIT, "dp"),
+        )
+    }
+
+    private fun com.squareup.kotlinpoet.CodeBlock.Builder.addComponentCall(info: ComponentInfo) {
+        val target = info.demoContainer.ifEmpty { info.functionName }
+        val args = info.parameters.joinToString(", ") { "${it.name} = ${it.name}" }
+        addStatement("%M($args)", MemberName(info.packageName, target))
+    }
+
+    private fun generateProvider(items: List<ComponentInfo>, options: VitrineOptions) {
+        val itemClass = ClassName(VITRINE_PACKAGE, "VitrineItem")
+        val providerInterface = ClassName(VITRINE_PACKAGE, "VitrineProvider")
+
+        val provider = TypeSpec.classBuilder(options.providerClassName)
+            .apply { if (options.isInternal) addModifiers(KModifier.INTERNAL) }
+            .addSuperinterface(providerInterface)
+            .addProperty(
+                PropertySpec.builder("items", LIST.parameterizedBy(itemClass))
+                    .addModifiers(KModifier.OVERRIDE)
+                    .initializer(
+                        buildCodeBlock {
+                            add("listOf(\n")
+                            indent()
+                            items.forEach { item ->
+                                add(
+                                    "%T(tab = %S, name = %S, content = { %M() }),\n",
+                                    itemClass, item.tab, item.displayName,
+                                    MemberName(item.packageName, item.wrapperName),
+                                )
+                            }
+                            unindent()
+                            add(")")
+                        }
+                    )
+                    .build()
+            )
+            .build()
+
+        // Aggregating: the provider indexes every annotated file, so any change to any of them
+        // must invalidate it.
+        val sources = items.map { it.sourceFile }.distinct().toTypedArray()
+        FileSpec.builder(options.generatedPackage, options.providerClassName)
+            .addType(provider)
+            .build()
+            .writeTo(codeGenerator, Dependencies(aggregating = true, *sources))
+
+        registerService(options, sources)
+    }
+
+    /**
+     * Registers the generated provider with [java.util.ServiceLoader].
+     *
+     * An `internal` provider cannot be loaded reflectively from another module, so the service file
+     * is only written for a public one — emitting it anyway would produce a `ServiceLoader` entry
+     * that fails at runtime with an access error.
+     */
+    private fun registerService(options: VitrineOptions, sources: Array<KSFile>) {
+        if (options.isInternal) {
+            logger.warn(
+                "Vitrine: ${VitrineOptions.ARG_VISIBILITY}=internal, so no ServiceLoader entry was " +
+                    "written. Reference ${options.generatedPackage}.${options.providerClassName} directly."
+            )
+            return
+        }
+        codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = true, *sources),
+            packageName = "",
+            fileName = "META-INF/services/$VITRINE_PACKAGE.VitrineProvider",
+            extensionName = "",
+        ).bufferedWriter().use { writer ->
+            writer.write("${options.generatedPackage}.${options.providerClassName}\n")
+        }
+    }
+
+    private data class ParameterInfo(val name: String, val control: ParameterControl)
+
+    private data class ComponentInfo(
+        val tab: String,
+        val displayName: String,
+        val packageName: String,
+        val functionName: String,
+        val demoContainer: String,
+        val wrapperName: String,
+        val parameters: List<ParameterInfo>,
+        val sourceFile: KSFile,
+    )
+
+    private companion object {
+        const val VITRINE_PACKAGE = "io.github.simtop.vitrine"
+        const val VITRINE_COMPONENT = "$VITRINE_PACKAGE.VitrineComponent"
+        const val COMPOSE_RUNTIME = "androidx.compose.runtime"
+        const val LAYOUT = "androidx.compose.foundation.layout"
+        const val MATERIAL3 = "androidx.compose.material3"
+        const val UI = "androidx.compose.ui"
+        const val UNIT = "androidx.compose.ui.unit"
+        const val FOUNDATION_TEXT = "androidx.compose.foundation.text"
+        const val TEXT_INPUT = "androidx.compose.ui.text.input"
+    }
+}
