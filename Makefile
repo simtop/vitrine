@@ -20,8 +20,10 @@ check: ## Run everything CI runs (unit tests + end-to-end generation).
 publish-local: ## Publish both artifacts to mavenLocal for dogfooding.
 	$(GRADLE) publishToMavenLocal
 
-publish: ## Publish to Maven Central (needs signing + Central credentials).
-	$(GRADLE) publishAndReleaseToMavenCentral
+publish: ## Upload a staged deployment to Maven Central (needs signing + Central credentials).
+	# Staged, not auto-released — matches publish.yml. Releasing is a deliberate click in the
+	# Portal UI until the pipeline has proven itself.
+	$(GRADLE) publishToMavenCentral
 
 clean: ## Delete build outputs.
 	$(GRADLE) clean

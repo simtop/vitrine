@@ -154,8 +154,8 @@ annotations are independent.
 
 ## Compatibility
 
-Verified in CI on the matrix in [`ci.yml`](.github/workflows/ci.yml). This table is generated from
-that matrix — it is not a guess about untested versions.
+Verified on exactly one configuration — the one [CI](.github/workflows/ci.yml) builds. These are
+the versions this library has actually been run against, not a claimed support range:
 
 | | Version |
 |---|---|
@@ -163,7 +163,11 @@ that matrix — it is not a guess about untested versions.
 | KSP | 2.3.9 (KSP2) |
 | AGP | 9.2.1 |
 | Gradle | 9.6.1 |
-| compileSdk / minSdk | 37 / 28 |
+| compileSdk | 37 |
+| minSdk | 21 (`vitrine-annotations`) |
+
+Older KSP and AGP versions may well work; they have not been tested, so this table does not claim
+them. A KSP/AGP version matrix is the next thing to add here, and the table will grow to match it.
 
 ## How it works
 

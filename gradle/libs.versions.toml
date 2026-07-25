@@ -7,6 +7,9 @@ composeBom = "2026.06.01"
 mavenPublish = "0.30.0"
 junit5 = "6.1.1"
 compileSdk = "37"
+# The published annotations AAR touches no Android API, so it keeps the lowest floor Compose
+# supports. minSdk is only the sample module's own floor.
+minSdkLibrary = "21"
 minSdk = "28"
 
 [libraries]

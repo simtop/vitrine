@@ -9,7 +9,10 @@ android {
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        minSdk = libs.versions.minSdk.get().toInt()
+        // Deliberately lower than the sample's: this module is an annotation, two data types and a
+        // ServiceLoader call — it touches no Android API, so there is no reason to tax consumers
+        // with a higher floor. Raising it later would be a breaking change; lowering it is not.
+        minSdk = libs.versions.minSdkLibrary.get().toInt()
     }
 
     // No `publishing { singleVariant(...) }` here: the vanniktech plugin already declares the
