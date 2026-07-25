@@ -90,8 +90,14 @@ public fun PrimaryButton_VitrineWrapper() {
 | `Float` | `Slider` | `0f` |
 
 Parameters of any other type — `Modifier`, your own models, lambdas — get no control and are left
-out of the generated call, so **they must have default values**. This is deliberate: Vitrine will
-not invent a value for a type it doesn't understand.
+out of the generated call, so **they must have default values**. Vitrine will not invent a value for
+a type it doesn't understand. It tells you either way: a warning when it falls back to a default, and
+a **build error, pointed at your component**, when an unsupported parameter has no default and the
+generated wrapper therefore couldn't call it.
+
+> **This four-type limit is the main thing to know before adopting Vitrine.** Enums, nullables,
+> `Color`, `Dp`, `Long` and `Double` have no controls yet, and there is no escape hatch for supplying
+> your own value for an arbitrary type. Expanding this is the next release's headline.
 
 ## Configuration
 

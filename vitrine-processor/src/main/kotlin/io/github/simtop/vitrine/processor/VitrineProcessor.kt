@@ -123,9 +123,30 @@ internal class VitrineProcessor(
             wrapperName = "${functionName}_VitrineWrapper",
             parameters = func.parameters.mapNotNull { param ->
                 val paramName = param.name?.asString() ?: return@mapNotNull null
-                val control = ParameterControl.forType(
-                    param.type.resolve().declaration.qualifiedName?.asString()
-                ) ?: return@mapNotNull null
+                val typeName = param.type.resolve().declaration.qualifiedName?.asString()
+                val control = ParameterControl.forType(typeName)
+                if (control == null) {
+                    // Dropping this silently is how you get generated code that doesn't compile:
+                    // the parameter vanishes from the call, so a required one becomes a missing
+                    // argument error pointing at generated source. Say so here, against the
+                    // component, where the fix is.
+                    if (!param.hasDefault) {
+                        logger.error(
+                            "Vitrine: parameter '$paramName' of type '$typeName' has no control and " +
+                                "no default value, so the generated wrapper cannot call " +
+                                "'$functionName'. Give it a default, or use a supported type " +
+                                "(String, Boolean, Int, Float).",
+                            param,
+                        )
+                    } else {
+                        logger.warn(
+                            "Vitrine: parameter '$paramName' of type '$typeName' has no control; " +
+                                "the generated wrapper will use its default value.",
+                            param,
+                        )
+                    }
+                    return@mapNotNull null
+                }
                 ParameterInfo(paramName, control)
             },
             sourceFile = containingFile,
