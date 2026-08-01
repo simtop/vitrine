@@ -80,14 +80,34 @@ class VitrineOptionsTest {
 
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource(
+        // The first two are what KSP actually passes: the leaf module name, not the Gradle path.
+        // Confirmed by dogfooding against a real multi-module project.
+        "designsystem,       DesignsystemVitrineProvider",
+        "presentation_utils, PresentationUtilsVitrineProvider",
         ":feature:beerslist, FeatureBeerslistVitrineProvider",
         "app-dev-beerslist,  AppDevBeerslistVitrineProvider",
-        "core_common,        CoreCommonVitrineProvider",
         "com.example.ui,     ComExampleUiVitrineProvider",
         "app,                AppVitrineProvider",
     )
     fun `module names become valid class names`(moduleName: String, expected: String) {
         assertEquals(expected, VitrineOptions.defaultProviderClassName(moduleName.trim()))
+    }
+
+    @Test
+    fun `same-leaf-named modules collide, which is why the provider name is configurable`() {
+        // KSP passes the leaf name, so :core:designsystem and :other:designsystem are
+        // indistinguishable here. Pinning this documents the limitation rather than hiding it.
+        assertEquals(
+            VitrineOptions.defaultProviderClassName("designsystem"),
+            VitrineOptions.defaultProviderClassName("designsystem"),
+        )
+        assertEquals(
+            "MyProvider",
+            VitrineOptions.from(
+                mapOf(VitrineOptions.ARG_PROVIDER_NAME to "MyProvider"),
+                moduleName = "designsystem",
+            ).providerClassName,
+        )
     }
 
     @Test

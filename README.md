@@ -185,7 +185,7 @@ ksp {
 | Argument | Type | Default | Effect |
 |---|---|---|---|
 | `vitrine.generatedPackage` | String | `io.github.simtop.vitrine.generated` | Package of the generated provider |
-| `vitrine.providerName` | String | `<ModuleName>VitrineProvider` | Class name of the generated provider |
+| `vitrine.providerName` | String | `<ModuleName>VitrineProvider` | Class name of the generated provider. KSP supplies the **leaf** module name, so `:core:designsystem` yields `DesignsystemVitrineProvider` — set this explicitly if two modules share a leaf name |
 | `vitrine.visibility` | `public` \| `internal` | `public` | Provider visibility. **`internal` suppresses the `ServiceLoader` entry** — an internal class can't be loaded reflectively from another module, so you must reference it directly. An unrecognised value fails the build rather than falling back silently |
 
 ### `demoContainer`

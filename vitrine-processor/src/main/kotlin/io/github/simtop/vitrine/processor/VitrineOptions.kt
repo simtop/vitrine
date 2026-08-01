@@ -58,11 +58,17 @@ internal data class VitrineOptions(
         }
 
         /**
-         * Turns a Gradle module name into a valid, collision-resistant class name — e.g.
-         * `:feature:beerslist` becomes `FeatureBeerslistVitrineProvider`.
+         * Turns a module name into a valid class name — `presentation_utils` becomes
+         * `PresentationUtilsVitrineProvider`.
          *
          * The module name is part of the class name because every module generates its own
-         * provider, and they all land in the same package by default.
+         * provider and they all land in the same package by default.
+         *
+         * **KSP hands us the leaf module name, not the Gradle path**: `:core:designsystem` arrives
+         * as `designsystem`, so it yields `DesignsystemVitrineProvider`. Two modules with the same
+         * leaf name under different parents therefore generate the same class name in the same
+         * package. Set [ARG_PROVIDER_NAME] (or [ARG_PACKAGE]) on at least one of them if that
+         * happens; this function cannot disambiguate what it was never given.
          */
         fun defaultProviderClassName(moduleName: String): String {
             val camelCased = moduleName
