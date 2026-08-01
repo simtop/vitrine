@@ -88,9 +88,9 @@ public fun PrimaryButton_VitrineWrapper() {
 | `Boolean` | `Checkbox` | `false` |
 | `Int` | `TextField` (numeric keyboard) | `0` |
 | `Long` | `TextField` (numeric keyboard) | `0L` |
-| `Float` | `Slider` over `0f..1f` | `0f` |
-| `Double` | `Slider` over `0.0..1.0` | `0.0` |
-| `Dp` | `Slider` over `0.dp..64.dp` | `8.dp` |
+| `Float` | `Slider`, `0f..1f` by default | `0f` |
+| `Double` | `Slider`, `0.0..1.0` by default | `0.0` |
+| `Dp` | `Slider`, `0.dp..64.dp` by default | `8.dp` |
 | `Color` | Row of clickable swatches | `Color.Blue` |
 | any `enum class` | `DropdownMenu` over its entries | the enum's first entry |
 | `T?` for any of the above | `Checkbox` gating `T`'s control | the inner control's initial value, present |
@@ -98,9 +98,36 @@ public fun PrimaryButton_VitrineWrapper() {
 A nullable parameter holds its value and its presence separately, so toggling it off and back on
 does not discard what you typed.
 
-**Slider ranges are fixed in 0.1.0** — `0f..1f` for `Float` and `Double`, `0.dp..64.dp` for `Dp`. A
-parameter that needs values outside those ranges can't reach them from the catalog yet; making the
-range configurable per parameter is planned.
+### Slider ranges
+
+Sliders default to `0f..1f` (`Float`, `Double`) and `0.dp..64.dp` (`Dp`). Annotate the parameter to
+change that:
+
+```kotlin
+@VitrineComponent(tab = "Layout")
+@Composable
+fun Card(
+    @VitrineRange(from = 0.0, to = 320.0) width: Dp,
+    @FloatRange(from = -50.0, to = 50.0) offset: Double,
+) { /* … */ }
+```
+
+Both annotations work, and there is a reason for the overlap: **AndroidX's `@FloatRange` is only
+legal on `Float` and `Double`.** Put it on a `Dp` and Android Lint fails the build with
+`SupportAnnotationUsage: expected float or double`. So `@VitrineRange` exists for the types AndroidX
+doesn't cover, and Vitrine reads `@FloatRange`/`@IntRange` as well so a codebase that already
+documents its bounds doesn't have to repeat them. When both are on one parameter, `@VitrineRange`
+wins.
+
+Use `@FloatRange` where it is legal — it documents the constraint to every other tool too. Reach for
+`@VitrineRange` for `Dp`.
+
+A range whose bounds aren't finite and ascending is ignored and the control keeps its default span.
+That matters in practice: `@FloatRange(from = 0.0)` leaves `to` at positive infinity, and a slider
+over an infinite span cannot be positioned.
+
+The starting value is pulled inside the range when it falls outside — a `Dp` bounded to `100..200`
+starts at `100.dp`, not at the usual `8.dp`.
 
 ### Any other type: `@PreviewParameter`
 

@@ -96,25 +96,25 @@ internal object ControlEmitter {
             ParameterControl.IntField -> builder.numberField(name, label, "toIntOrNull", "0")
             ParameterControl.LongField -> builder.numberField(name, label, "toLongOrNull", "0L")
 
-            ParameterControl.FloatSlider -> builder.slider(
+            is ParameterControl.FloatSlider -> builder.slider(
                 name, label,
                 value = CodeBlock.of("%N", name),
                 onChange = CodeBlock.of("it"),
-                range = "0f..1f",
+                range = control.range,
             )
 
-            ParameterControl.DoubleSlider -> builder.slider(
+            is ParameterControl.DoubleSlider -> builder.slider(
                 name, label,
                 value = CodeBlock.of("%N.toFloat()", name),
                 onChange = CodeBlock.of("it.toDouble()"),
-                range = "0f..1f",
+                range = control.range,
             )
 
-            ParameterControl.DpSlider -> builder.slider(
+            is ParameterControl.DpSlider -> builder.slider(
                 name, label,
                 value = CodeBlock.of("%N.value", name),
                 onChange = CodeBlock.of("it.%M", DP),
-                range = "0f..64f",
+                range = control.range,
             )
 
             ParameterControl.ColorSwatches -> builder.colorSwatches(name, label)
@@ -170,9 +170,11 @@ internal object ControlEmitter {
         ParameterControl.Checkbox -> CodeBlock.of("false")
         ParameterControl.IntField -> CodeBlock.of("0")
         ParameterControl.LongField -> CodeBlock.of("0L")
-        ParameterControl.FloatSlider -> CodeBlock.of("0f")
-        ParameterControl.DoubleSlider -> CodeBlock.of("0.0")
-        ParameterControl.DpSlider -> CodeBlock.of("8.%M", DP)
+        // Sliders start at their conventional value, pulled inside the range when a narrower one
+        // was declared — state outside its own slider's bounds would be passed to the component.
+        is ParameterControl.FloatSlider -> CodeBlock.of("%Lf", control.range.start(0f))
+        is ParameterControl.DoubleSlider -> CodeBlock.of("%L", control.range.start(0f).toDouble())
+        is ParameterControl.DpSlider -> CodeBlock.of("%L.%M", control.range.start(8f), DP)
         ParameterControl.ColorSwatches -> CodeBlock.of("%M.Blue", COLOR)
         // The three composite controls declare their own state in emitState and never reach here.
         is ParameterControl.EnumDropdown,
@@ -203,12 +205,12 @@ internal object ControlEmitter {
         label: String,
         value: CodeBlock,
         onChange: CodeBlock,
-        range: String,
+        range: SliderRange,
     ) {
         addStatement("%M(%P)", TEXT, "$label: \${$name}")
         addStatement(
-            "%M(value = %L, onValueChange = { %N = %L }, valueRange = %L)",
-            SLIDER, value, name, onChange, range,
+            "%M(value = %L, onValueChange = { %N = %L }, valueRange = %Lf..%Lf)",
+            SLIDER, value, name, onChange, range.min, range.max,
         )
     }
 

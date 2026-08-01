@@ -19,6 +19,11 @@ Initial release. Extracted and generalised from a multi-module production-shaped
 - `@PreviewParameter` support as the escape hatch for types with no built-in control: Vitrine
   renders a dropdown over the provider's values. It takes precedence over the type mapping, so it
   also works to pin a supported type to a fixed set of options.
+- Configurable slider ranges via `@VitrineRange`, with AndroidX's `@FloatRange` / `@IntRange` also
+  honoured where they are legal. `@VitrineRange` exists because Lint's `SupportAnnotationUsage`
+  rejects `@FloatRange` on a `Dp` parameter, so there was otherwise no legal way to bound a `Dp`
+  slider. A non-finite or inverted range is ignored in favour of the default, and a starting value
+  outside the declared range is pulled inside it.
 - Diagnostics for uncontrollable parameters: a warning when the parameter has a default and the
   wrapper falls back to it, and a build error against the component when it does not — the case that
   would otherwise emit generated code that fails to compile.

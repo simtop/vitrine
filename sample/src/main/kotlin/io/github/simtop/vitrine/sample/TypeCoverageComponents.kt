@@ -15,6 +15,8 @@
  */
 package io.github.simtop.vitrine.sample
 
+import androidx.annotation.FloatRange
+import androidx.annotation.IntRange
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -28,6 +30,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.simtop.vitrine.VitrineComponent
+import io.github.simtop.vitrine.VitrineRange
 
 /**
  * Every component here exists to make the processor generate a control it would not otherwise
@@ -100,3 +103,37 @@ class GreetingProvider : PreviewParameterProvider<String> {
     override val values = sequenceOf("Hello", "Hola", "Bonjour")
 }
 
+
+/** `@VitrineRange` widens the Dp slider past the default 64; `@FloatRange` moves the Double off 0..1. */
+@VitrineComponent(tab = "Ranges", name = "Custom slider ranges")
+@Composable
+fun RangedSpacer(
+    @VitrineRange(from = 0.0, to = 320.0) width: Dp,
+    @FloatRange(from = -50.0, to = 50.0) offset: Double,
+) {
+    Text("width = $width, offset = $offset")
+}
+
+/**
+ * A half-specified `@FloatRange` leaves `to` at +infinity, which is not a usable slider span, so
+ * the control keeps its default range rather than emitting a slider that cannot be positioned.
+ */
+@VitrineComponent(tab = "Ranges", name = "Half-specified range falls back")
+@Composable
+fun HalfRanged(@FloatRange(from = 0.0) ratio: Float) {
+    Text("ratio = $ratio")
+}
+
+/** A range on a nullable slider still applies, through the null wrapper. */
+@VitrineComponent(tab = "Ranges", name = "Ranged nullable")
+@Composable
+fun OptionalElevation(@VitrineRange(from = 4.0, to = 24.0) elevation: Dp?) {
+    Text("elevation = ${elevation ?: "none"}")
+}
+
+/** `@IntRange` on an Int is ordinary documentation; it must not break the text field. */
+@VitrineComponent(tab = "Ranges", name = "IntRange on a non-slider is ignored")
+@Composable
+fun BoundedCount(@IntRange(from = 0, to = 10) count: Int) {
+    Text("count = $count")
+}

@@ -16,6 +16,35 @@
 package io.github.simtop.vitrine.processor
 
 /**
+ * The span a slider covers.
+ *
+ * Defaults match the type's conventional range; `@FloatRange` or `@IntRange` on the parameter
+ * narrows or widens it. Both bounds must be finite — an unbounded slider has no meaningful
+ * position, and `@FloatRange`'s own defaults are infinities, so this is a real input.
+ */
+internal data class SliderRange(val min: Float, val max: Float) {
+    init {
+        require(min.isFinite() && max.isFinite()) { "slider bounds must be finite, got $min..$max" }
+        require(min < max) { "slider min must be below max, got $min..$max" }
+    }
+
+    /** [preferred] if it lies inside this range, otherwise the nearest bound. */
+    fun start(preferred: Float): Float = preferred.coerceIn(min, max)
+
+    companion object {
+        /** `0f..1f` — for `Float` and `Double`, matching Compose's own `Slider` default. */
+        val UNIT = SliderRange(0f, 1f)
+
+        /** `0f..64f` — for `Dp`, a usable span for spacing and elevation. */
+        val DP_DEFAULT = SliderRange(0f, 64f)
+
+        /** Returns a range, or null if [min]/[max] aren't a usable finite ascending pair. */
+        fun orNull(min: Float, max: Float): SliderRange? =
+            if (min.isFinite() && max.isFinite() && min < max) SliderRange(min, max) else null
+    }
+}
+
+/**
  * The control Vitrine generates for a component parameter.
  *
  * This is a sealed hierarchy rather than an enum because half the controls need an initial value
@@ -40,14 +69,28 @@ internal sealed interface ParameterControl {
     /** `Long` — a numeric text field. */
     data object LongField : ParameterControl
 
-    /** `Float` — a slider over `0f..1f`. */
-    data object FloatSlider : ParameterControl
+    /** A control whose span can be narrowed with `@FloatRange` / `@IntRange`. */
+    sealed interface Ranged : ParameterControl {
+        val range: SliderRange
 
-    /** `Double` — a slider over `0.0..1.0`. */
-    data object DoubleSlider : ParameterControl
+        /** Returns this control with [range] replaced. */
+        fun withRange(range: SliderRange): Ranged
+    }
 
-    /** `Dp` — a slider over `0.dp..64.dp`. */
-    data object DpSlider : ParameterControl
+    /** `Float` — a slider, `0f..1f` unless annotated otherwise. */
+    data class FloatSlider(override val range: SliderRange = SliderRange.UNIT) : Ranged {
+        override fun withRange(range: SliderRange) = copy(range = range)
+    }
+
+    /** `Double` — a slider, `0.0..1.0` unless annotated otherwise. */
+    data class DoubleSlider(override val range: SliderRange = SliderRange.UNIT) : Ranged {
+        override fun withRange(range: SliderRange) = copy(range = range)
+    }
+
+    /** `Dp` — a slider, `0.dp..64.dp` unless annotated otherwise. */
+    data class DpSlider(override val range: SliderRange = SliderRange.DP_DEFAULT) : Ranged {
+        override fun withRange(range: SliderRange) = copy(range = range)
+    }
 
     /** `Color` — a row of clickable swatches over a fixed palette. */
     data object ColorSwatches : ParameterControl
@@ -117,9 +160,9 @@ internal sealed interface ParameterControl {
             "kotlin.Boolean" -> Checkbox
             "kotlin.Int" -> IntField
             "kotlin.Long" -> LongField
-            "kotlin.Float" -> FloatSlider
-            "kotlin.Double" -> DoubleSlider
-            "androidx.compose.ui.unit.Dp" -> DpSlider
+            "kotlin.Float" -> FloatSlider()
+            "kotlin.Double" -> DoubleSlider()
+            "androidx.compose.ui.unit.Dp" -> DpSlider()
             "androidx.compose.ui.graphics.Color" -> ColorSwatches
             else -> null
         }

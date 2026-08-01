@@ -28,10 +28,11 @@ class ParameterControlTest {
         assertEquals(ParameterControl.Checkbox, ParameterControl.forScalar("kotlin.Boolean"))
         assertEquals(ParameterControl.IntField, ParameterControl.forScalar("kotlin.Int"))
         assertEquals(ParameterControl.LongField, ParameterControl.forScalar("kotlin.Long"))
-        assertEquals(ParameterControl.FloatSlider, ParameterControl.forScalar("kotlin.Float"))
-        assertEquals(ParameterControl.DoubleSlider, ParameterControl.forScalar("kotlin.Double"))
+        // Sliders resolve with their default span; a @FloatRange on the parameter narrows it later.
+        assertEquals(ParameterControl.FloatSlider(), ParameterControl.forScalar("kotlin.Float"))
+        assertEquals(ParameterControl.DoubleSlider(), ParameterControl.forScalar("kotlin.Double"))
         assertEquals(
-            ParameterControl.DpSlider,
+            ParameterControl.DpSlider(),
             ParameterControl.forScalar("androidx.compose.ui.unit.Dp"),
         )
         assertEquals(
