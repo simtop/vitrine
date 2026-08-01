@@ -31,6 +31,12 @@ jobs:
       - name: End-to-end code generation
         run: ./gradlew :sample:assembleRelease
 
+      # The runnable host for the catalog (and the source of the README screenshots). Named
+      # explicitly because this workflow lists tasks rather than running `check`, so a new module
+      # is otherwise invisible to CI.
+      - name: Sample app
+        run: ./gradlew :sample-app:assembleDebug
+
       - name: Assemble published artifacts
         run: ./gradlew :vitrine-annotations:assembleRelease :vitrine-processor:assemble
 

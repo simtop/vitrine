@@ -1,6 +1,6 @@
 GRADLE := ./gradlew
 
-.PHONY: help build test sample check publish-local publish clean
+.PHONY: help build test sample app check publish-local publish clean
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
@@ -14,8 +14,11 @@ test: ## Run the processor's unit tests.
 sample: ## Run the processor over the sample module and compile the generated code.
 	$(GRADLE) :sample:assembleRelease
 
-check: ## Run everything CI runs (unit tests + end-to-end generation).
-	$(GRADLE) check :sample:assembleRelease
+app: ## Install the runnable sample catalog on a connected device.
+	$(GRADLE) :sample-app:installDebug
+
+check: ## Run everything CI runs (unit tests + end-to-end generation + sample app).
+	$(GRADLE) check :sample:assembleRelease :sample-app:assembleDebug
 
 publish-local: ## Publish both artifacts to mavenLocal for dogfooding.
 	$(GRADLE) publishToMavenLocal

@@ -24,6 +24,9 @@ Initial release. Extracted and generalised from a multi-module production-shaped
   rejects `@FloatRange` on a `Dp` parameter, so there was otherwise no legal way to bound a `Dp`
   slider. A non-finite or inverted range is ignored in favour of the default, and a starting value
   outside the declared range is pulled inside it.
+- Slider readouts are rounded for display — `Dp` to whole `dp`, `Float`/`Double` to two decimals.
+  The underlying value is untouched; only the label is formatted, since a dragged slider otherwise
+  reads `52.515324.dp`.
 - Diagnostics for uncontrollable parameters: a warning when the parameter has a default and the
   wrapper falls back to it, and a build error against the component when it does not — the case that
   would otherwise emit generated code that fails to compile.

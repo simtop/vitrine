@@ -101,6 +101,7 @@ internal object ControlEmitter {
                 value = CodeBlock.of("%N", name),
                 onChange = CodeBlock.of("it"),
                 range = control.range,
+                readout = twoDecimals(label, name),
             )
 
             is ParameterControl.DoubleSlider -> builder.slider(
@@ -108,6 +109,7 @@ internal object ControlEmitter {
                 value = CodeBlock.of("%N.toFloat()", name),
                 onChange = CodeBlock.of("it.toDouble()"),
                 range = control.range,
+                readout = twoDecimals(label, name),
             )
 
             is ParameterControl.DpSlider -> builder.slider(
@@ -115,6 +117,10 @@ internal object ControlEmitter {
                 value = CodeBlock.of("%N.value", name),
                 onChange = CodeBlock.of("it.%M", DP),
                 range = control.range,
+                // Dp.toString() already ends in "dp", so the default readout would say "8.0.dp".
+                readout = CodeBlock.of(
+                    "%P", "$label: \${$name.value.toInt()}dp",
+                ),
             )
 
             ParameterControl.ColorSwatches -> builder.colorSwatches(name, label)
@@ -200,14 +206,22 @@ internal object ControlEmitter {
         )
     }
 
+    /**
+     * A slider readout rounded to two decimals — a dragged Float otherwise reads like
+     * "ratio: 0.5234567", which is noise rather than information.
+     */
+    private fun twoDecimals(label: String, name: String): CodeBlock =
+        CodeBlock.of("%P", "$label: \${\"%.2f\".format($name)}")
+
     private fun CodeBlock.Builder.slider(
         name: String,
         label: String,
         value: CodeBlock,
         onChange: CodeBlock,
         range: SliderRange,
+        readout: CodeBlock = CodeBlock.of("%P", "$label: \${$name}"),
     ) {
-        addStatement("%M(%P)", TEXT, "$label: \${$name}")
+        addStatement("%M(%L)", TEXT, readout)
         addStatement(
             "%M(value = %L, onValueChange = { %N = %L }, valueRange = %Lf..%Lf)",
             SLIDER, value, name, onChange, range.min, range.max,

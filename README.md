@@ -11,6 +11,24 @@ supported parameter, wired to state, rendered above a live instance of the compo
 text, tick the checkbox, drag the slider — the component recomposes. No catalog screen to maintain,
 no registration step, and it works across a multi-module project.
 
+<p align="center">
+  <img src="art/controls-color-dp.png" alt="A component with a color swatch row and a Dp slider; the rendered square below is green and 52dp, matching the controls" width="420">
+  <img src="art/controls-enum.png" alt="A component whose enum parameter renders as a dropdown listing LOW, MEDIUM and HIGH" width="420">
+</p>
+
+Above: a `Color` parameter as a swatch row and a `Dp` parameter as a slider — the square below is
+what the component renders, and it tracks the controls. On the right, an `enum` parameter as a
+dropdown over its own entries. Neither is a pre-baked preview; both are live.
+
+Every annotated component across every module, listed by tab:
+
+<p align="center">
+  <img src="art/catalog-list.png" alt="The sample catalog listing every annotated component, grouped by tab" width="380">
+</p>
+
+*(Screenshots are from [`sample-app`](sample-app) in this repo — `./gradlew :sample-app:installDebug`
+to run it yourself.)*
+
 ## Quick start
 
 ```kotlin
