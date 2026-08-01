@@ -123,19 +123,20 @@ internal class VitrineProcessor(
             wrapperName = "${functionName}_VitrineWrapper",
             parameters = func.parameters.mapNotNull { param ->
                 val paramName = param.name?.asString() ?: return@mapNotNull null
-                val typeName = param.type.resolve().declaration.qualifiedName?.asString()
-                val control = ParameterControl.forType(typeName)
+                val control = ControlResolver.resolve(param)
                 if (control == null) {
                     // Dropping this silently is how you get generated code that doesn't compile:
                     // the parameter vanishes from the call, so a required one becomes a missing
                     // argument error pointing at generated source. Say so here, against the
                     // component, where the fix is.
+                    val typeName = param.type.resolve().declaration.qualifiedName?.asString()
                     if (!param.hasDefault) {
                         logger.error(
                             "Vitrine: parameter '$paramName' of type '$typeName' has no control and " +
                                 "no default value, so the generated wrapper cannot call " +
-                                "'$functionName'. Give it a default, or use a supported type " +
-                                "(String, Boolean, Int, Float).",
+                                "'$functionName'. Give it a default, annotate it with " +
+                                "@PreviewParameter to supply values, or use a supported type " +
+                                "($SUPPORTED_TYPES).",
                             param,
                         )
                     } else {
@@ -159,12 +160,7 @@ internal class VitrineProcessor(
             .addCode(
                 buildCodeBlock {
                     info.parameters.forEach { param ->
-                        addStatement(
-                            "var %N by %M { %M(${param.control.initialValue}) }",
-                            param.name,
-                            MemberName(COMPOSE_RUNTIME, "remember"),
-                            MemberName(COMPOSE_RUNTIME, "mutableStateOf"),
-                        )
+                        ControlEmitter.emitState(this, param.name, param.control)
                     }
                     add("\n")
                     beginControlFlow(
@@ -174,7 +170,10 @@ internal class VitrineProcessor(
                         MemberName(LAYOUT, "padding"),
                         MemberName(UNIT, "dp"),
                     )
-                    info.parameters.forEach { param -> addControl(param) }
+                    info.parameters.forEach { param ->
+                        ControlEmitter.emitControl(this, param.name, param.name, param.control)
+                        addSpacer(8)
+                    }
                     addStatement("%M()", MemberName(MATERIAL3, "HorizontalDivider"))
                     addSpacer(16)
                     addComponentCall(info)
@@ -190,52 +189,6 @@ internal class VitrineProcessor(
             .writeTo(codeGenerator, Dependencies(aggregating = false, info.sourceFile))
     }
 
-    private fun com.squareup.kotlinpoet.CodeBlock.Builder.addControl(param: ParameterInfo) {
-        when (param.control) {
-            ParameterControl.TEXT_FIELD -> addStatement(
-                "%M(value = %N, onValueChange = { %N = it }, label = { %M(%S) })",
-                MemberName(MATERIAL3, "TextField"), param.name, param.name,
-                MemberName(MATERIAL3, "Text"), param.name,
-            )
-
-            ParameterControl.CHECKBOX -> {
-                beginControlFlow(
-                    "%M(verticalAlignment = %M.CenterVertically)",
-                    MemberName(LAYOUT, "Row"),
-                    MemberName(UI, "Alignment"),
-                )
-                addStatement("%M(%S)", MemberName(MATERIAL3, "Text"), param.name)
-                addStatement(
-                    "%M(checked = %N, onCheckedChange = { %N = it })",
-                    MemberName(MATERIAL3, "Checkbox"), param.name, param.name,
-                )
-                endControlFlow()
-            }
-
-            ParameterControl.NUMBER_FIELD -> addStatement(
-                "%M(value = %N.toString(), onValueChange = { %N = it.toIntOrNull() ?: 0 }, " +
-                    "label = { %M(%S) }, keyboardOptions = %M(keyboardType = %M.Number))",
-                MemberName(MATERIAL3, "TextField"), param.name, param.name,
-                MemberName(MATERIAL3, "Text"), param.name,
-                MemberName(FOUNDATION_TEXT, "KeyboardOptions"),
-                MemberName(TEXT_INPUT, "KeyboardType"),
-            )
-
-            ParameterControl.SLIDER -> {
-                addStatement(
-                    "%M(%P)",
-                    MemberName(MATERIAL3, "Text"),
-                    "${param.name}: \${${param.name}}",
-                )
-                addStatement(
-                    "%M(value = %N, onValueChange = { %N = it })",
-                    MemberName(MATERIAL3, "Slider"), param.name, param.name,
-                )
-            }
-        }
-        addSpacer(8)
-    }
-
     private fun com.squareup.kotlinpoet.CodeBlock.Builder.addSpacer(height: Int) {
         addStatement(
             "%M(modifier = %M.%M($height.%M))",
@@ -248,8 +201,13 @@ internal class VitrineProcessor(
 
     private fun com.squareup.kotlinpoet.CodeBlock.Builder.addComponentCall(info: ComponentInfo) {
         val target = info.demoContainer.ifEmpty { info.functionName }
-        val args = info.parameters.joinToString(", ") { "${it.name} = ${it.name}" }
-        addStatement("%M($args)", MemberName(info.packageName, target))
+        val args = com.squareup.kotlinpoet.CodeBlock.builder().apply {
+            info.parameters.forEachIndexed { index, param ->
+                if (index > 0) add(", ")
+                add("%N = %L", param.name, ControlEmitter.valueExpression(param.name, param.control))
+            }
+        }.build()
+        addStatement("%M(%L)", MemberName(info.packageName, target), args)
     }
 
     private fun generateProvider(items: List<ComponentInfo>, options: VitrineOptions) {
@@ -338,7 +296,7 @@ internal class VitrineProcessor(
         const val MATERIAL3 = "androidx.compose.material3"
         const val UI = "androidx.compose.ui"
         const val UNIT = "androidx.compose.ui.unit"
-        const val FOUNDATION_TEXT = "androidx.compose.foundation.text"
-        const val TEXT_INPUT = "androidx.compose.ui.text.input"
+        const val SUPPORTED_TYPES =
+            "String, Boolean, Int, Long, Float, Double, Dp, Color, any enum, or a nullable of those"
     }
 }

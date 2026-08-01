@@ -13,8 +13,15 @@ Initial release. Extracted and generalised from a multi-module production-shaped
 ### Added
 
 - `@VitrineComponent` annotation with `tab`, `name`, and `demoContainer`.
-- KSP processor generating an interactive Material 3 wrapper per annotated composable: `TextField`
-  for `String`, `Checkbox` for `Boolean`, numeric `TextField` for `Int`, `Slider` for `Float`.
+- KSP processor generating an interactive Material 3 wrapper per annotated composable, with controls
+  for `String`, `Boolean`, `Int`, `Long`, `Float`, `Double`, `Dp`, `Color`, any `enum class`, and
+  nullables of all of those.
+- `@PreviewParameter` support as the escape hatch for types with no built-in control: Vitrine
+  renders a dropdown over the provider's values. It takes precedence over the type mapping, so it
+  also works to pin a supported type to a fixed set of options.
+- Diagnostics for uncontrollable parameters: a warning when the parameter has a default and the
+  wrapper falls back to it, and a build error against the component when it does not — the case that
+  would otherwise emit generated code that fails to compile.
 - One aggregating `VitrineProvider` per module, registered via `ServiceLoader`, plus
   `loadVitrineItems()` to collect every module's items with a stable (tab, name) ordering.
 - Configuration through KSP arguments: `vitrine.generatedPackage`, `vitrine.providerName`,

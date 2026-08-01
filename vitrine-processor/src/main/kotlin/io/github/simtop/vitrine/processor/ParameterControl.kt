@@ -16,33 +16,111 @@
 package io.github.simtop.vitrine.processor
 
 /**
- * The Material 3 control Vitrine generates for a component parameter, chosen by the parameter's
- * type.
+ * The control Vitrine generates for a component parameter.
  *
- * A parameter whose type maps to `null` here is left out of the generated controls *and* the
- * generated call, so it falls back to its default value. That is why an unsupported parameter
- * without a default is a compile error in the generated code rather than a processor error — the
- * error points at the component, which is where the fix belongs.
+ * This is a sealed hierarchy rather than an enum because half the controls need an initial value
+ * that is a *function of the parameter's own type* — an enum parameter starts at its own first
+ * entry, a nullable one wraps another control — which a constant cannot express.
  *
- * Kept free of KSP types so the type-to-control contract is unit-testable.
+ * It carries no KSP types: an enum control holds the entry *names* it was resolved from, not the
+ * `KSType`. That keeps the whole model unit-testable without running a compilation, and it is why
+ * [ControlResolver] (which does touch KSP) is a separate file.
  */
-public enum class ParameterControl(
-    /** The literal used to seed the remembered state for this control. */
-    public val initialValue: String,
-) {
-    TEXT_FIELD("\"Default Value\""),
-    CHECKBOX("false"),
-    NUMBER_FIELD("0"),
-    SLIDER("0f"),
-    ;
+public sealed interface ParameterControl {
+
+    /** `String` — a text field. */
+    public data object TextField : ParameterControl
+
+    /** `Boolean` — a checkbox. */
+    public data object Checkbox : ParameterControl
+
+    /** `Int` — a numeric text field. */
+    public data object IntField : ParameterControl
+
+    /** `Long` — a numeric text field. */
+    public data object LongField : ParameterControl
+
+    /** `Float` — a slider over `0f..1f`. */
+    public data object FloatSlider : ParameterControl
+
+    /** `Double` — a slider over `0.0..1.0`. */
+    public data object DoubleSlider : ParameterControl
+
+    /** `Dp` — a slider over `0.dp..64.dp`. */
+    public data object DpSlider : ParameterControl
+
+    /** `Color` — a row of clickable swatches over a fixed palette. */
+    public data object ColorSwatches : ParameterControl
+
+    /**
+     * An enum class — a dropdown over its entries.
+     *
+     * @property packageName package of the enum class.
+     * @property simpleNames the enum's simple names, outermost first, so nested enums stay
+     *   addressable (`Outer`, `Inner`).
+     * @property entryNames the enum's entries, in declaration order. Never empty — an enum with no
+     *   entries has no value to start from and is not resolvable to a control.
+     */
+    public data class EnumDropdown(
+        val packageName: String,
+        val simpleNames: List<String>,
+        val entryNames: List<String>,
+    ) : ParameterControl {
+        init {
+            require(simpleNames.isNotEmpty()) { "an enum control needs at least one simple name" }
+            require(entryNames.isNotEmpty()) { "an enum control needs at least one entry" }
+        }
+    }
+
+    /**
+     * A nullable parameter — a checkbox gating [inner]'s control.
+     *
+     * The generated state is the inner control's value plus a presence flag; the value passed to
+     * the component is derived from both. Holding `T?` directly would mean losing the edited value
+     * every time the parameter is toggled off.
+     */
+    public data class Nullable(val inner: ParameterControl) : ParameterControl {
+        init {
+            require(inner !is Nullable) { "T?? is not a thing; nullable controls do not nest" }
+        }
+    }
+
+    /**
+     * The escape hatch for arbitrary types: a `@PreviewParameter` provider supplies the values and
+     * the catalog renders a dropdown over them.
+     *
+     * The values cannot be read at processing time — they only exist once the provider is
+     * instantiated — so the generated code constructs the provider and indexes into its sequence.
+     *
+     * @property packageName package of the provider class.
+     * @property simpleNames the provider's simple names, outermost first.
+     */
+    public data class PreviewParameterValues(
+        val packageName: String,
+        val simpleNames: List<String>,
+    ) : ParameterControl {
+        init {
+            require(simpleNames.isNotEmpty()) { "a provider control needs at least one simple name" }
+        }
+    }
 
     public companion object {
-        /** Returns the control for a fully-qualified Kotlin type name, or null if unsupported. */
-        public fun forType(qualifiedName: String?): ParameterControl? = when (qualifiedName) {
-            "kotlin.String" -> TEXT_FIELD
-            "kotlin.Boolean" -> CHECKBOX
-            "kotlin.Int" -> NUMBER_FIELD
-            "kotlin.Float" -> SLIDER
+        /**
+         * Returns the control for a non-null, non-enum type, by fully-qualified name — the cases
+         * that depend on nothing but the name itself.
+         *
+         * Enums, nullables and `@PreviewParameter` need more than a name to resolve; see
+         * [ControlResolver].
+         */
+        public fun forScalar(qualifiedName: String?): ParameterControl? = when (qualifiedName) {
+            "kotlin.String" -> TextField
+            "kotlin.Boolean" -> Checkbox
+            "kotlin.Int" -> IntField
+            "kotlin.Long" -> LongField
+            "kotlin.Float" -> FloatSlider
+            "kotlin.Double" -> DoubleSlider
+            "androidx.compose.ui.unit.Dp" -> DpSlider
+            "androidx.compose.ui.graphics.Color" -> ColorSwatches
             else -> null
         }
     }

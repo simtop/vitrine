@@ -87,17 +87,42 @@ public fun PrimaryButton_VitrineWrapper() {
 | `String` | `TextField` | `"Default Value"` |
 | `Boolean` | `Checkbox` | `false` |
 | `Int` | `TextField` (numeric keyboard) | `0` |
-| `Float` | `Slider` | `0f` |
+| `Long` | `TextField` (numeric keyboard) | `0L` |
+| `Float` | `Slider` over `0f..1f` | `0f` |
+| `Double` | `Slider` over `0.0..1.0` | `0.0` |
+| `Dp` | `Slider` over `0.dp..64.dp` | `8.dp` |
+| `Color` | Row of clickable swatches | `Color.Blue` |
+| any `enum class` | `DropdownMenu` over its entries | the enum's first entry |
+| `T?` for any of the above | `Checkbox` gating `T`'s control | the inner control's initial value, present |
 
-Parameters of any other type — `Modifier`, your own models, lambdas — get no control and are left
-out of the generated call, so **they must have default values**. Vitrine will not invent a value for
-a type it doesn't understand. It tells you either way: a warning when it falls back to a default, and
-a **build error, pointed at your component**, when an unsupported parameter has no default and the
-generated wrapper therefore couldn't call it.
+A nullable parameter holds its value and its presence separately, so toggling it off and back on
+does not discard what you typed.
 
-> **This four-type limit is the main thing to know before adopting Vitrine.** Enums, nullables,
-> `Color`, `Dp`, `Long` and `Double` have no controls yet, and there is no escape hatch for supplying
-> your own value for an arbitrary type. Expanding this is the next release's headline.
+### Any other type: `@PreviewParameter`
+
+For types Vitrine has no control for — your own models, sealed hierarchies — supply the values with
+Compose's own `@PreviewParameter`. No Vitrine-specific annotation to learn:
+
+```kotlin
+class UserProvider : PreviewParameterProvider<User> {
+    override val values = sequenceOf(User("Ada", 36), User("Grace", 45))
+}
+
+@VitrineComponent(tab = "Profile")
+@Composable
+fun UserBadge(@PreviewParameter(UserProvider::class) user: User) { /* … */ }
+```
+
+Vitrine renders a dropdown over the provider's values, labelled with each value's `toString()`.
+`@PreviewParameter` takes precedence over the built-in mapping, so you can use it to pin a `String`
+parameter to a fixed set of options instead of a free text field.
+
+### When there is no control
+
+A parameter with no control and no `@PreviewParameter` is left out of the generated call, so **it
+must have a default value**. Vitrine will not invent a value for a type it doesn't understand, and
+it tells you either way: a warning when it falls back to a default, and a **build error pointed at
+your component** when the parameter has no default and the wrapper therefore couldn't call it.
 
 ## Configuration
 
@@ -151,7 +176,8 @@ search and permutation support.
 
 **The difference is interactivity.** Showkase renders each `@Preview` as its author wrote it — a
 fixed set of pre-baked states. Vitrine generates *live controls* bound to component parameters, so
-one annotation covers the whole input space instead of one point in it.
+one annotation covers the whole input space instead of one point in it: a dropdown over an enum's
+entries, a slider over a `Dp`, a checkbox that toggles a nullable between null and a real value.
 
 Pick Showkase if you want a broad browser over previews you already have. Pick Vitrine if you want
 to *manipulate* components — checking how a button behaves as a label grows, or what a progress bar

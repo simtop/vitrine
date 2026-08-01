@@ -29,4 +29,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
+    // For @PreviewParameter, the escape hatch for types with no built-in control.
+    implementation(libs.compose.ui.tooling.preview)
 }
