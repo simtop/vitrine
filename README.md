@@ -98,10 +98,23 @@ public fun PrimaryButton_VitrineWrapper() {
 A nullable parameter holds its value and its presence separately, so toggling it off and back on
 does not discard what you typed.
 
+**Slider ranges are fixed in 0.1.0** — `0f..1f` for `Float` and `Double`, `0.dp..64.dp` for `Dp`. A
+parameter that needs values outside those ranges can't reach them from the catalog yet; making the
+range configurable per parameter is planned.
+
 ### Any other type: `@PreviewParameter`
 
 For types Vitrine has no control for — your own models, sealed hierarchies — supply the values with
-Compose's own `@PreviewParameter`. No Vitrine-specific annotation to learn:
+Compose's own `@PreviewParameter`. No Vitrine-specific annotation to learn.
+
+It comes from Compose's tooling artifact, which `vitrine-annotations` deliberately does not drag in
+for everyone, so add it yourself if you use this:
+
+```kotlin
+dependencies {
+    implementation("androidx.compose.ui:ui-tooling-preview")
+}
+```
 
 ```kotlin
 class UserProvider : PreviewParameterProvider<User> {

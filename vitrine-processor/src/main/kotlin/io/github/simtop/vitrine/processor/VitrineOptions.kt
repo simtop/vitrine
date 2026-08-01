@@ -21,17 +21,17 @@ package io.github.simtop.vitrine.processor
  * This type is deliberately free of any KSP dependency so the option contract can be unit-tested
  * without running a compilation.
  */
-public data class VitrineOptions(
+internal data class VitrineOptions(
     val generatedPackage: String,
     val providerClassName: String,
     val isInternal: Boolean,
 ) {
-    public companion object {
-        public const val ARG_PACKAGE: String = "vitrine.generatedPackage"
-        public const val ARG_PROVIDER_NAME: String = "vitrine.providerName"
-        public const val ARG_VISIBILITY: String = "vitrine.visibility"
+    companion object {
+        const val ARG_PACKAGE: String = "vitrine.generatedPackage"
+        const val ARG_PROVIDER_NAME: String = "vitrine.providerName"
+        const val ARG_VISIBILITY: String = "vitrine.visibility"
 
-        public const val DEFAULT_PACKAGE: String = "io.github.simtop.vitrine.generated"
+        const val DEFAULT_PACKAGE: String = "io.github.simtop.vitrine.generated"
 
         /**
          * Resolves options from the raw KSP argument map.
@@ -44,7 +44,7 @@ public data class VitrineOptions(
          *   `public` or `internal` — a silent fallback here would produce a catalog that compiles
          *   but cannot be seen from the app module.
          */
-        public fun from(args: Map<String, String>, moduleName: String): VitrineOptions {
+        fun from(args: Map<String, String>, moduleName: String): VitrineOptions {
             val visibility = args.nonBlank(ARG_VISIBILITY) ?: "public"
             require(visibility == "public" || visibility == "internal") {
                 "$ARG_VISIBILITY must be 'public' or 'internal', was '$visibility'"
@@ -64,7 +64,7 @@ public data class VitrineOptions(
          * The module name is part of the class name because every module generates its own
          * provider, and they all land in the same package by default.
          */
-        public fun defaultProviderClassName(moduleName: String): String {
+        fun defaultProviderClassName(moduleName: String): String {
             val camelCased = moduleName
                 .split(':', '-', '_', '.', ' ')
                 .filter { it.isNotBlank() }

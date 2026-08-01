@@ -26,31 +26,31 @@ package io.github.simtop.vitrine.processor
  * `KSType`. That keeps the whole model unit-testable without running a compilation, and it is why
  * [ControlResolver] (which does touch KSP) is a separate file.
  */
-public sealed interface ParameterControl {
+internal sealed interface ParameterControl {
 
     /** `String` — a text field. */
-    public data object TextField : ParameterControl
+    data object TextField : ParameterControl
 
     /** `Boolean` — a checkbox. */
-    public data object Checkbox : ParameterControl
+    data object Checkbox : ParameterControl
 
     /** `Int` — a numeric text field. */
-    public data object IntField : ParameterControl
+    data object IntField : ParameterControl
 
     /** `Long` — a numeric text field. */
-    public data object LongField : ParameterControl
+    data object LongField : ParameterControl
 
     /** `Float` — a slider over `0f..1f`. */
-    public data object FloatSlider : ParameterControl
+    data object FloatSlider : ParameterControl
 
     /** `Double` — a slider over `0.0..1.0`. */
-    public data object DoubleSlider : ParameterControl
+    data object DoubleSlider : ParameterControl
 
     /** `Dp` — a slider over `0.dp..64.dp`. */
-    public data object DpSlider : ParameterControl
+    data object DpSlider : ParameterControl
 
     /** `Color` — a row of clickable swatches over a fixed palette. */
-    public data object ColorSwatches : ParameterControl
+    data object ColorSwatches : ParameterControl
 
     /**
      * An enum class — a dropdown over its entries.
@@ -61,7 +61,7 @@ public sealed interface ParameterControl {
      * @property entryNames the enum's entries, in declaration order. Never empty — an enum with no
      *   entries has no value to start from and is not resolvable to a control.
      */
-    public data class EnumDropdown(
+    data class EnumDropdown(
         val packageName: String,
         val simpleNames: List<String>,
         val entryNames: List<String>,
@@ -79,7 +79,7 @@ public sealed interface ParameterControl {
      * the component is derived from both. Holding `T?` directly would mean losing the edited value
      * every time the parameter is toggled off.
      */
-    public data class Nullable(val inner: ParameterControl) : ParameterControl {
+    data class Nullable(val inner: ParameterControl) : ParameterControl {
         init {
             require(inner !is Nullable) { "T?? is not a thing; nullable controls do not nest" }
         }
@@ -95,7 +95,7 @@ public sealed interface ParameterControl {
      * @property packageName package of the provider class.
      * @property simpleNames the provider's simple names, outermost first.
      */
-    public data class PreviewParameterValues(
+    data class PreviewParameterValues(
         val packageName: String,
         val simpleNames: List<String>,
     ) : ParameterControl {
@@ -104,7 +104,7 @@ public sealed interface ParameterControl {
         }
     }
 
-    public companion object {
+    companion object {
         /**
          * Returns the control for a non-null, non-enum type, by fully-qualified name — the cases
          * that depend on nothing but the name itself.
@@ -112,7 +112,7 @@ public sealed interface ParameterControl {
          * Enums, nullables and `@PreviewParameter` need more than a name to resolve; see
          * [ControlResolver].
          */
-        public fun forScalar(qualifiedName: String?): ParameterControl? = when (qualifiedName) {
+        fun forScalar(qualifiedName: String?): ParameterControl? = when (qualifiedName) {
             "kotlin.String" -> TextField
             "kotlin.Boolean" -> Checkbox
             "kotlin.Int" -> IntField
