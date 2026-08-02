@@ -35,6 +35,17 @@ Initial release. Extracted and generalised from a multi-module production-shaped
 - Configuration through KSP arguments: `vitrine.generatedPackage`, `vitrine.providerName`,
   `vitrine.visibility`.
 
+### Known limitations
+
+- **`binary-compatibility-validator` covers `vitrine-processor` only.** BCV registers its tasks off
+  the Kotlin JVM/multiplatform plugin, and `vitrine-annotations` compiles through AGP 9's built-in
+  Kotlin, so BCV never sees it. That is the wrong way round — the processor's public surface is one
+  SPI class, while the annotations are the actual consumer contract. `explicitApi()` is on both
+  modules as a compensating control.
+- Slider ranges are per-parameter but their *step* is continuous; there is no discrete-step control.
+- Screenshots in `art/` are captured by hand from `sample-app`, so they can drift from the generated
+  UI.
+
 ### Notes on what changed during extraction
 
 - The generated package, provider class name, and visibility were hardcoded; all three are now

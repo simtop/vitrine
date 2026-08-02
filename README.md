@@ -219,24 +219,57 @@ ksp {
 | `vitrine.providerName` | String | `<ModuleName>VitrineProvider` | Class name of the generated provider. KSP supplies the **leaf** module name, so `:core:designsystem` yields `DesignsystemVitrineProvider` — set this explicitly if two modules share a leaf name |
 | `vitrine.visibility` | `public` \| `internal` | `public` | Provider visibility. **`internal` suppresses the `ServiceLoader` entry** — an internal class can't be loaded reflectively from another module, so you must reference it directly. An unrecognised value fails the build rather than falling back silently |
 
-### `demoContainer`
+### `demoContainer` — write your own demo view
 
-Some components need scaffolding to look right in isolation. Point the annotation at a sibling
-function that provides it:
+Generated controls stop being enough as soon as a component has a callback, needs bounded layout, or
+has states worth showing side by side. `demoContainer` names a sibling function to render **instead
+of** the component. It receives the same controllable parameters — Vitrine passes them straight
+through — and is then free to do whatever it likes with them.
 
 ```kotlin
-@VitrineComponent(tab = "Text", name = "Framed label", demoContainer = "FramedLabelDemo")
+@VitrineComponent(tab = "Commerce", name = "Product card", demoContainer = "ProductCardDemo")
 @Composable
-fun FramedLabel(caption: String, modifier: Modifier = Modifier) { /* … */ }
+fun ProductCard(
+    title: String,
+    @VitrineRange(from = 0.0, to = 500.0) price: Double,
+    inStock: Boolean,
+    accent: Color,
+    onAddToCart: () -> Unit = {},   // no control exists for a lambda
+) { /* … */ }
 
 @Composable
-fun FramedLabelDemo(caption: String) {
-    Surface { Box(Modifier.padding(12.dp)) { FramedLabel(caption) } }
+fun ProductCardDemo(title: String, price: Double, inStock: Boolean, accent: Color) {
+    var cartCount by remember { mutableIntStateOf(0) }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // 1. Bound the width — a card that spans the screen reads as a banner.
+        Box(Modifier.width(300.dp)) {
+            // 2. Supply the callback Vitrine can't generate a control for…
+            ProductCard(title, price, inStock, accent, onAddToCart = { cartCount++ })
+        }
+        // …and show its effect, so the button proves it works instead of looking inert.
+        Text(if (cartCount == 0) "onAddToCart has not fired" else "onAddToCart fired ×$cartCount")
+
+        // 3. Pin an edge case that's easy to forget to test.
+        Text("Fixed case — long title truncates:")
+        Box(Modifier.width(300.dp)) {
+            ProductCard("Single-origin cold brew concentrate, 1L bottle", price, inStock, accent)
+        }
+    }
 }
 ```
 
-Vitrine calls `FramedLabelDemo` instead. The container must be in the same package and accept the
-same supported parameters.
+<p align="center">
+  <img src="art/demo-container.png" alt="The product card demo: generated controls above, a width-constrained card, a live counter showing the callback fired three times, and a second fixed card demonstrating title truncation" width="380">
+</p>
+
+The controls at the top are still generated from `ProductCard`'s own signature — the annotation
+stays on the component. Only the *rendering* moves to the container. The full source is
+[`ProductCard.kt`](sample/src/main/kotlin/io/github/simtop/vitrine/sample/ProductCard.kt).
+
+The container must be in the same package and accept the same supported parameters. For something
+simpler — a component that only needs a `Surface` around it — a two-line container works just as
+well.
 
 ## How it compares to Showkase
 

@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.maven.publish)
 }
 
+// The module consumers actually import, so its public surface is the API contract.
+kotlin { explicitApi() }
+
 android {
     namespace = "io.github.simtop.vitrine"
     compileSdk = libs.versions.compileSdk.get().toInt()
