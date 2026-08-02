@@ -83,14 +83,11 @@ internal object ControlEmitter {
                 TEXT_FIELD, name, name, TEXT, label,
             )
 
-            ParameterControl.Checkbox -> {
-                builder.beginControlFlow("%M(verticalAlignment = %M.CenterVertically)", ROW, ALIGNMENT)
-                builder.addStatement("%M(%S)", TEXT, label)
-                builder.addStatement(
+            ParameterControl.Checkbox -> builder.labelledRow(label) {
+                addStatement(
                     "%M(checked = %N, onCheckedChange = { %N = it })",
                     CHECKBOX, name, name,
                 )
-                builder.endControlFlow()
             }
 
             ParameterControl.IntField -> builder.numberField(name, label, "toIntOrNull", "0")
@@ -144,13 +141,12 @@ internal object ControlEmitter {
             is ParameterControl.PreviewParameterValues -> builder.providerDropdown(name, label)
 
             is ParameterControl.Nullable -> {
-                builder.beginControlFlow("%M(verticalAlignment = %M.CenterVertically)", ROW, ALIGNMENT)
-                builder.addStatement("%M(%P)", TEXT, "$label: not null")
-                builder.addStatement(
-                    "%M(checked = %N, onCheckedChange = { %N = it })",
-                    CHECKBOX, name.presentVar, name.presentVar,
-                )
-                builder.endControlFlow()
+                builder.labelledRow("$label \u2260 null") {
+                    addStatement(
+                        "%M(checked = %N, onCheckedChange = { %N = it })",
+                        CHECKBOX, name.presentVar, name.presentVar,
+                    )
+                }
                 // Rendering the inner control only when present keeps the UI honest: a null
                 // parameter has no value to edit. The state survives regardless.
                 builder.beginControlFlow("if (%N)", name.presentVar)
@@ -221,7 +217,7 @@ internal object ControlEmitter {
         range: SliderRange,
         readout: CodeBlock = CodeBlock.of("%P", "$label: \${$name}"),
     ) {
-        addStatement("%M(%L)", TEXT, readout)
+        addStatement("%M(%L, style = %M.typography.labelLarge)", TEXT, readout, MATERIAL_THEME)
         addStatement(
             "%M(value = %L, onValueChange = { %N = %L }, valueRange = %Lf..%Lf)",
             SLIDER, value, name, onChange, range.min, range.max,
@@ -229,18 +225,37 @@ internal object ControlEmitter {
     }
 
     private fun CodeBlock.Builder.colorSwatches(name: String, label: String) {
-        addStatement("%M(%S)", TEXT, label)
-        beginControlFlow("%M(verticalAlignment = %M.CenterVertically)", ROW, ALIGNMENT)
+        addStatement("%M(%S, style = %M.typography.labelLarge)", TEXT, label, MATERIAL_THEME)
+        beginControlFlow(
+            "%M(horizontalArrangement = %M.spacedBy(8.%M), verticalAlignment = %M.CenterVertically)",
+            ROW, ARRANGEMENT, DP, ALIGNMENT,
+        )
         beginControlFlow(
             "%L.forEach { swatch ->",
             PALETTE.map { CodeBlock.of("%M.%N", COLOR, it) }.joinToCode(prefix = "listOf(", suffix = ")"),
         )
+        // Circles read as swatches rather than as a chart; the selected one gets a heavier ring in
+        // the theme's onSurface, which stays visible whatever colour sits underneath it.
         addStatement(
-            "%M(%M.%M(32.%M).%M(swatch).%M(2.%M, if (%N == swatch) %M.Black else %M.Transparent)" +
+            "%M(%M.%M(36.%M).%M(%M).%M(swatch).%M(if (%N == swatch) 3.%M else 1.%M, " +
+                "if (%N == swatch) %M.colorScheme.onSurface else %M.colorScheme.outlineVariant, %M)" +
                 ".%M { %N = swatch })",
-            BOX, MODIFIER, SIZE, DP, BACKGROUND, BORDER, DP, name, COLOR, COLOR, CLICKABLE, name,
+            BOX, MODIFIER, SIZE, DP, CLIP, CIRCLE_SHAPE, BACKGROUND, BORDER, name, DP, DP,
+            name, MATERIAL_THEME, MATERIAL_THEME, CIRCLE_SHAPE, CLICKABLE, name,
         )
         endControlFlow()
+        endControlFlow()
+    }
+
+    /** A full-width row with the parameter name on the left and its control on the right. */
+    private fun CodeBlock.Builder.labelledRow(label: String, control: CodeBlock.Builder.() -> Unit) {
+        beginControlFlow(
+            "%M(modifier = %M.%M(), verticalAlignment = %M.CenterVertically, " +
+                "horizontalArrangement = %M.SpaceBetween)",
+            ROW, MODIFIER, FILL_MAX_WIDTH, ALIGNMENT, ARRANGEMENT,
+        )
+        addStatement("%M(%P, style = %M.typography.labelLarge)", TEXT, label, MATERIAL_THEME)
+        control()
         endControlFlow()
     }
 
@@ -339,6 +354,11 @@ internal object ControlEmitter {
     private val BORDER = MemberName(FOUNDATION, "border")
     private val CLICKABLE = MemberName(FOUNDATION, "clickable")
 
+    private val ARRANGEMENT = MemberName(LAYOUT, "Arrangement")
+    private val FILL_MAX_WIDTH = MemberName(LAYOUT, "fillMaxWidth")
+    private val MATERIAL_THEME = MemberName(MATERIAL3, "MaterialTheme")
+    private val CLIP = MemberName("androidx.compose.ui.draw", "clip")
+    private val CIRCLE_SHAPE = MemberName("androidx.compose.foundation.shape", "CircleShape")
     private val MODIFIER = MemberName("androidx.compose.ui", "Modifier")
     private val ALIGNMENT = MemberName("androidx.compose.ui", "Alignment")
     private val COLOR = MemberName("androidx.compose.ui.graphics", "Color")

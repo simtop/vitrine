@@ -16,9 +16,13 @@ no registration step, and it works across a multi-module project.
   <img src="art/controls-enum.png" alt="A component whose enum parameter renders as a dropdown listing LOW, MEDIUM and HIGH" width="420">
 </p>
 
-Above: a `Color` parameter as a swatch row and a `Dp` parameter as a slider — the square below is
-what the component renders, and it tracks the controls. On the right, an `enum` parameter as a
+Above: a `Color` parameter as a swatch row and a `Dp` parameter as a slider — the square below the
+controls is what the component renders, and it tracks them. On the right, an `enum` parameter as a
 dropdown over its own entries. Neither is a pre-baked preview; both are live.
+
+The generated layout puts the controls on a tinted surface and the component on the plain
+background below it, so *what you can change* and *what it looks like* are told apart without a
+caption.
 
 Every annotated component across every module, listed by tab:
 
@@ -81,20 +85,29 @@ public fun PrimaryButton_VitrineWrapper() {
   var label by remember { mutableStateOf("Default Value") }
   var enabled by remember { mutableStateOf(false) }
 
-  Column(modifier = Modifier.padding(16.dp)) {
-    TextField(value = label, onValueChange = { label = it }, label = { Text("label") })
-    Spacer(modifier = Modifier.height(8.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-      Text("enabled")
-      Checkbox(checked = enabled, onCheckedChange = { enabled = it })
+  Column(modifier = Modifier.fillMaxWidth()) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant) {
+      Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TextField(value = label, onValueChange = { label = it }, label = { Text("label") })
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Text("""enabled""", style = MaterialTheme.typography.labelLarge)
+          Checkbox(checked = enabled, onCheckedChange = { enabled = it })
+        }
+      }
     }
-    Spacer(modifier = Modifier.height(8.dp))
-    HorizontalDivider()
-    Spacer(modifier = Modifier.height(16.dp))
-    PrimaryButton(label = label, enabled = enabled)
+    Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+      PrimaryButton(label = label, enabled = enabled)
+    }
   }
 }
 ```
+
+The generated code is meant to be read, so it uses `Arrangement.spacedBy` rather than emitting a
+`Spacer` between every control.
 
 …plus one `VitrineProvider` per module, registered as a `ServiceLoader` service.
 

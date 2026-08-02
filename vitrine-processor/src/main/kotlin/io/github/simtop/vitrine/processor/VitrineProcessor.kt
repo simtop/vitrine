@@ -163,20 +163,39 @@ internal class VitrineProcessor(
                         ControlEmitter.emitState(this, param.name, param.control)
                     }
                     add("\n")
-                    beginControlFlow(
-                        "%M(modifier = %M.%M(16.%M))",
-                        MemberName(LAYOUT, "Column"),
-                        MemberName(UI, "Modifier"),
-                        MemberName(LAYOUT, "padding"),
-                        MemberName(UNIT, "dp"),
-                    )
-                    info.parameters.forEach { param ->
-                        ControlEmitter.emitControl(this, param.name, param.name, param.control)
-                        addSpacer(8)
+                    beginControlFlow("%M(modifier = %M.%M())", COLUMN, MODIFIER, FILL_MAX_WIDTH)
+
+                    // The controls sit on a tinted surface and the component renders on the plain
+                    // background below it, so "what I can change" and "what it looks like" are
+                    // told apart by the layout rather than by a divider.
+                    if (info.parameters.isNotEmpty()) {
+                        beginControlFlow(
+                            "%M(modifier = %M.%M(), color = %M.colorScheme.surfaceVariant)",
+                            MemberName(MATERIAL3, "Surface"), MODIFIER, FILL_MAX_WIDTH,
+                            MemberName(MATERIAL3, "MaterialTheme"),
+                        )
+                        beginControlFlow(
+                            "%M(modifier = %M.%M(16.%M), verticalArrangement = %M.spacedBy(12.%M))",
+                            COLUMN, MODIFIER, MemberName(LAYOUT, "padding"), DP,
+                            MemberName(LAYOUT, "Arrangement"), DP,
+                        )
+                        // spacedBy rather than a Spacer after every control: consistent gaps, and
+                        // it keeps N Spacer statements out of code a human is expected to read.
+                        info.parameters.forEach { param ->
+                            ControlEmitter.emitControl(this, param.name, param.name, param.control)
+                        }
+                        endControlFlow()
+                        endControlFlow()
                     }
-                    addStatement("%M()", MemberName(MATERIAL3, "HorizontalDivider"))
-                    addSpacer(16)
+
+                    beginControlFlow(
+                        "%M(modifier = %M.%M().%M(24.%M), contentAlignment = %M.Center)",
+                        MemberName(LAYOUT, "Box"), MODIFIER, FILL_MAX_WIDTH,
+                        MemberName(LAYOUT, "padding"), DP, MemberName(UI, "Alignment"),
+                    )
                     addComponentCall(info)
+                    endControlFlow()
+
                     endControlFlow()
                 }
             )
@@ -187,16 +206,6 @@ internal class VitrineProcessor(
             .addFunction(wrapper)
             .build()
             .writeTo(codeGenerator, Dependencies(aggregating = false, info.sourceFile))
-    }
-
-    private fun com.squareup.kotlinpoet.CodeBlock.Builder.addSpacer(height: Int) {
-        addStatement(
-            "%M(modifier = %M.%M($height.%M))",
-            MemberName(LAYOUT, "Spacer"),
-            MemberName(UI, "Modifier"),
-            MemberName(LAYOUT, "height"),
-            MemberName(UNIT, "dp"),
-        )
     }
 
     private fun com.squareup.kotlinpoet.CodeBlock.Builder.addComponentCall(info: ComponentInfo) {
@@ -296,6 +305,11 @@ internal class VitrineProcessor(
         const val MATERIAL3 = "androidx.compose.material3"
         const val UI = "androidx.compose.ui"
         const val UNIT = "androidx.compose.ui.unit"
+
+        val COLUMN = MemberName(LAYOUT, "Column")
+        val MODIFIER = MemberName(UI, "Modifier")
+        val FILL_MAX_WIDTH = MemberName(LAYOUT, "fillMaxWidth")
+        val DP = MemberName(UNIT, "dp")
         const val SUPPORTED_TYPES =
             "String, Boolean, Int, Long, Float, Double, Dp, Color, any enum, or a nullable of those"
     }
