@@ -300,7 +300,7 @@ the versions this library has actually been run against, not a claimed support r
 | AGP | 9.2.1 |
 | Gradle | 9.6.1 |
 | compileSdk | 37 |
-| minSdk | 21 (`vitrine-annotations`) |
+| minSdk | none — `vitrine-annotations` is a plain JVM jar, not an AAR |
 
 Older KSP and AGP versions may well work; they have not been tested, so this table does not claim
 them. A KSP/AGP version matrix is the next thing to add here, and the table will grow to match it.

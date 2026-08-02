@@ -1,0 +1,36 @@
+public abstract interface annotation class io/github/simtop/vitrine/VitrineComponent : java/lang/annotation/Annotation {
+	public abstract fun demoContainer ()Ljava/lang/String;
+	public abstract fun name ()Ljava/lang/String;
+	public abstract fun tab ()Ljava/lang/String;
+}
+
+public final class io/github/simtop/vitrine/VitrineItem {
+	public static final field $stable I
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function2;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Ljava/lang/String;
+	public final fun component3 ()Lkotlin/jvm/functions/Function2;
+	public final fun copy (Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function2;)Lio/github/simtop/vitrine/VitrineItem;
+	public static synthetic fun copy$default (Lio/github/simtop/vitrine/VitrineItem;Ljava/lang/String;Ljava/lang/String;Lkotlin/jvm/functions/Function2;ILjava/lang/Object;)Lio/github/simtop/vitrine/VitrineItem;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getContent ()Lkotlin/jvm/functions/Function2;
+	public final fun getName ()Ljava/lang/String;
+	public final fun getTab ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class io/github/simtop/vitrine/VitrineProvider {
+	public abstract fun getItems ()Ljava/util/List;
+}
+
+public final class io/github/simtop/vitrine/VitrineProviderKt {
+	public static final fun loadVitrineItems (Ljava/lang/ClassLoader;)Ljava/util/List;
+	public static synthetic fun loadVitrineItems$default (Ljava/lang/ClassLoader;ILjava/lang/Object;)Ljava/util/List;
+}
+
+public abstract interface annotation class io/github/simtop/vitrine/VitrineRange : java/lang/annotation/Annotation {
+	public abstract fun from ()D
+	public abstract fun to ()D
+}
+

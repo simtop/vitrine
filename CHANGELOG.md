@@ -19,6 +19,11 @@ Initial release. Extracted and generalised from a multi-module production-shaped
 - `@PreviewParameter` support as the escape hatch for types with no built-in control: Vitrine
   renders a dropdown over the provider's values. It takes precedence over the type mapping, so it
   also works to pin a supported type to a fixed set of options.
+- `vitrine-annotations` publishes as a **plain JVM jar**, not an Android AAR: it touches no Android
+  API, so there is no minSdk floor at all, and `binary-compatibility-validator` covers it (BCV keys
+  off the Kotlin JVM plugin and cannot see a module built by AGP's built-in Kotlin). Android
+  consumers are unaffected — Gradle metadata resolves `compose-runtime` to `runtime-android` for
+  them, verified in a real Android app.
 - Configurable slider ranges via `@VitrineRange`, with AndroidX's `@FloatRange` / `@IntRange` also
   honoured where they are legal. `@VitrineRange` exists because Lint's `SupportAnnotationUsage`
   rejects `@FloatRange` on a `Dp` parameter, so there was otherwise no legal way to bound a `Dp`
@@ -37,11 +42,6 @@ Initial release. Extracted and generalised from a multi-module production-shaped
 
 ### Known limitations
 
-- **`binary-compatibility-validator` covers `vitrine-processor` only.** BCV registers its tasks off
-  the Kotlin JVM/multiplatform plugin, and `vitrine-annotations` compiles through AGP 9's built-in
-  Kotlin, so BCV never sees it. That is the wrong way round — the processor's public surface is one
-  SPI class, while the annotations are the actual consumer contract. `explicitApi()` is on both
-  modules as a compensating control.
 - Slider ranges are per-parameter but their *step* is continuous; there is no discrete-step control.
 - Screenshots in `art/` are captured by hand from `sample-app`, so they can drift from the generated
   UI.
